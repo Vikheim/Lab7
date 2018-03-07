@@ -52,9 +52,15 @@ public class MorseDecoder {
         double[] returnBuffer = new double[totalBinCount];
 
         double[] sampleBuffer = new double[BIN_SIZE * inputFile.getNumChannels()];
+
+        double powerSum = 0;
         for (int binIndex = 0; binIndex < totalBinCount; binIndex++) {
-            // Get the right number of samples from the inputFile
-            // Sum all the samples together and store them in the returnBuffer
+            inputFile.readFrames(sampleBuffer, BIN_SIZE);
+            for (int i = 0; i < BIN_SIZE; i++) {
+                powerSum += Math.abs(sampleBuffer[i]);
+            }
+            returnBuffer[binIndex] = powerSum;
+            powerSum = 0;
         }
         return returnBuffer;
     }
@@ -81,14 +87,44 @@ public class MorseDecoder {
          * There are four conditions to handle. Symbols should only be output when you see
          * transitions. You will also have to store how much power or silence you have seen.
          */
+        boolean isPower;
+        boolean wasPower;
+        boolean isSilence;
+        boolean wasSilence;
 
-        // if ispower and waspower
-        // else if ispower and not waspower
-        // else if issilence and wassilence
-        // else if issilence and not wassilence
+        String morseCode = "";
+        int powerCount = 0;
+        int silenceCount = 0;
 
-        return "";
+        for (int i = 1; i < powerMeasurements.length; i++) {
+            isPower = (powerMeasurements[i] >= POWER_THRESHOLD);
+            isSilence = (powerMeasurements[i] < POWER_THRESHOLD);
+            wasPower = (powerMeasurements[i - 1] >= POWER_THRESHOLD);
+            wasSilence = (powerMeasurements[i - 1] < POWER_THRESHOLD);
+
+            System.out.println(powerMeasurements[i]);
+            if (isPower && wasPower) {
+                powerCount++;
+            } else if (isSilence && wasSilence) {
+                silenceCount++;
+            } else if (isSilence && wasPower) {
+                if (powerCount + 1 >= DASH_BIN_COUNT) {
+                    morseCode = morseCode + "-";
+                    powerCount = 0;
+                } else {
+                    morseCode = morseCode + ".";
+                    powerCount = 0;
+                }
+            } else if (isPower && wasSilence) {
+                if (silenceCount + 1 >= DASH_BIN_COUNT) {
+                    morseCode = morseCode + " ";
+                }
+                silenceCount = 0;
+            }
+        }
+        return morseCode;
     }
+
 
     /**
      * Morse code to alpha mapping.
